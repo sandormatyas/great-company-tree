@@ -1,7 +1,8 @@
 import src.crud as crud
 import src.models as models
-from src.schemas.requests import CompanyUnitCreate
+from src.schemas.requests import CompanyUnitCreate, CompanyUnitUpdate
 from src.schemas.responses import CompanyUnit
+from src.schemas.db_schemas import EdgeUpdate
 from pydantic import UUID4
 
 
@@ -22,7 +23,7 @@ class CompanyManager:
     def add_node(self, company_unit_create: CompanyUnitCreate) -> models.Node:
         new_node = crud.add_node(self.__db, models.Node(name=company_unit_create.name))
 
-        parent_edges = crud.get_edges_by_child_id(
+        parent_edges = crud.get_edges_by_child(
             self.__db, child_id=company_unit_create.parent_id
         )
         for edge in parent_edges:
@@ -47,7 +48,7 @@ class CompanyManager:
 
     def get_tree(self, node_id: UUID4) -> CompanyUnit:
         company_unit = self.get_company_unit(node_id)
-        edges_from_unit = crud.get_edges_by_parent_id(self.__db, parent_id=node_id)
+        edges_from_unit = crud.get_edges_by_parent(self.__db, parent_id=node_id)
         children = [self.get_company_unit(edge.child_id) for edge in edges_from_unit]
         company_unit.children = self.__build_tree(children, node_id)
 
@@ -63,6 +64,14 @@ class CompanyManager:
             height=self._get_height(node_id),
         )
 
+    def update_parent(
+        self, company_unit_id: UUID4, company_update: CompanyUnitUpdate
+    ) -> CompanyUnit:
+        edge = crud.get_edge_by_clild_and_weight(self.__db, company_unit_id, 1)
+        update = EdgeUpdate(**company_update.model_dump())
+        crud.update_edge(self.__db, edge, update)
+        return self.get_tree(company_unit_id)
+
     def __build_tree(
         self, company_units: list[CompanyUnit], parent_id: UUID4
     ) -> list[CompanyUnit]:
@@ -76,13 +85,13 @@ class CompanyManager:
         return children
 
     def _get_parent_id(self, node_id: UUID4) -> UUID4 | None:
-        edge = crud.get_edge_by_clild_id_and_weight(self.__db, node_id, 1)
+        edge = crud.get_edge_by_clild_and_weight(self.__db, node_id, 1)
         return edge.parent_id if edge else None
 
     def _get_height(self, node_id: UUID4) -> int:
         if node_id == self.__root.id:
             return 0
-        root_parent_edge = crud.get_edge(
+        root_parent_edge = crud.get_edge_by_parent_and_child(
             self.__db, parent_id=self.__root.id, child_id=node_id
         )
         return root_parent_edge.weight

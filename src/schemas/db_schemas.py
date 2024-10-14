@@ -1,6 +1,7 @@
 from pydantic import BaseModel, UUID4
 
 
-class NodeCreate(BaseModel):
-    name: str
-    height: int
+class EdgeUpdate(BaseModel):
+    parent_id: UUID4 | None = None
+    child_id: UUID4 | None = None
+    weight: int | None = None

@@ -1,5 +1,6 @@
 import src.models as models
 from sqlalchemy.orm import Session
+from src.schemas.db_schemas import EdgeUpdate
 from pydantic import UUID4
 
 
@@ -17,7 +18,21 @@ def add_edge(db: Session, edge: models.Edge):
     return edge
 
 
-def get_edge(db: Session, parent_id: UUID4, child_id: UUID4):
+def remove_edge(db: Session, edge: models.Edge):
+    db.delete(edge)
+    db.commit()
+    return edge
+
+
+def update_edge(db: Session, edge: models.Edge, edge_update: EdgeUpdate):
+    for key, value in edge_update.dict(exclude_unset=True).items():
+        setattr(edge, key, value)
+    db.commit()
+    db.refresh(edge)
+    return edge
+
+
+def get_edge_by_parent_and_child(db: Session, parent_id: UUID4, child_id: UUID4):
     return (
         db.query(models.Edge)
         .filter(models.Edge.parent_id == parent_id, models.Edge.child_id == child_id)
@@ -25,7 +40,7 @@ def get_edge(db: Session, parent_id: UUID4, child_id: UUID4):
     )
 
 
-def get_edge_by_clild_id_and_weight(db: Session, child_id: UUID4, weight: int):
+def get_edge_by_clild_and_weight(db: Session, child_id: UUID4, weight: int):
     return (
         db.query(models.Edge)
         .filter(models.Edge.child_id == child_id, models.Edge.weight == weight)
@@ -33,7 +48,7 @@ def get_edge_by_clild_id_and_weight(db: Session, child_id: UUID4, weight: int):
     )
 
 
-def get_edges_by_child_id(db: Session, child_id: UUID4):
+def get_edges_by_child(db: Session, child_id: UUID4):
     return (
         db.query(models.Edge)
         .filter(models.Edge.child_id == child_id, models.Edge.parent_id.is_not(None))
@@ -41,7 +56,7 @@ def get_edges_by_child_id(db: Session, child_id: UUID4):
     )
 
 
-def get_edges_by_parent_id(db: Session, parent_id: UUID4):
+def get_edges_by_parent(db: Session, parent_id: UUID4):
     return db.query(models.Edge).filter(models.Edge.parent_id == parent_id).all()
 
 

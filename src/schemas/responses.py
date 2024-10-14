@@ -8,4 +8,4 @@ class CompanyUnit(BaseModel):
     height: int
 
     name: str
-    children: list["CompanyUnit"] = Field(default_factory=list)
+    children: list["CompanyUnit"] = Field(default_factory=list, optional=True)

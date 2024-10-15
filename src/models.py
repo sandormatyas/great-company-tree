@@ -10,7 +10,7 @@ class Edge(Base):
     id = Column(Integer, primary_key=True, unique=True)
     parent_id = Column(Uuid, ForeignKey("nodes.id"))
     child_id = Column(Uuid, ForeignKey("nodes.id"))
-    weight = Column(Integer)
+    depth = Column(Integer)
 
 
 class Node(Base):

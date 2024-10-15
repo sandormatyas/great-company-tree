@@ -11,44 +11,32 @@ class CompanyManager:
         self.__db = company_database
         self.__root = self.get_root_node()
 
-    def add_root_node(self, company_unit_create: CompanyUnitCreate) -> models.Node:
-        new_node = crud.add_node(self.__db, models.Node(name=company_unit_create.name))
-        edge = models.Edge(parent_id=None, child_id=new_node.id, weight=0)
-        crud.add_edge(self.__db, edge)
+    def get_root_node(self) -> models.Node:
+        return crud.get_root_node(self.__db)
 
-        self.__root = new_node
+    def add_root_node(self, company_unit_create: CompanyUnitCreate) -> models.Node:
+        new_node = self.add_node(company_unit_create)
+        self.__root = self.get_root_node()
 
         return new_node
 
     def add_node(self, company_unit_create: CompanyUnitCreate) -> models.Node:
         new_node = crud.add_node(self.__db, models.Node(name=company_unit_create.name))
 
-        parent_edges = crud.get_edges_by_child(
-            self.__db, child_id=company_unit_create.parent_id
+        crud.add_edges_on_node_creation(
+            self.__db, node=new_node, parent_id=company_unit_create.parent_id
         )
-        for edge in parent_edges:
-            extended_edge = models.Edge(
-                parent_id=edge.parent_id, child_id=new_node.id, weight=edge.weight + 1
-            )
-            crud.add_edge(
-                self.__db, extended_edge
-            )  # TODO: add multilple edges in one transaction
-        new_edge = models.Edge(
-            parent_id=company_unit_create.parent_id, child_id=new_node.id, weight=1
-        )
-        crud.add_edge(self.__db, new_edge)
 
         return new_node
 
-    def get_node(self, node_id: UUID4) -> models.Node:
-        return crud.get_node(self.__db, node_id)
-
-    def get_root_node(self) -> models.Node:
-        return crud.get_root_node(self.__db)
+    def update_parent(self, node_id: UUID4, payload: CompanyUnitUpdate) -> CompanyUnit:
+        edge_update = EdgeUpdate(parent_id=payload.parent_id, child_id=node_id)
+        crud.update_edges(self.__db, edge_update)
+        return self.get_tree(node_id)
 
     def get_tree(self, node_id: UUID4) -> CompanyUnit:
         company_unit = self.get_company_unit(node_id)
-        edges_from_unit = crud.get_edges_by_parent(self.__db, parent_id=node_id)
+        edges_from_unit = crud.get_all_child_edges(self.__db, parent_id=node_id)
         children = [self.get_company_unit(edge.child_id) for edge in edges_from_unit]
         company_unit.children = self.__build_tree(children, node_id)
 
@@ -64,14 +52,6 @@ class CompanyManager:
             height=self._get_height(node_id),
         )
 
-    def update_parent(
-        self, company_unit_id: UUID4, company_update: CompanyUnitUpdate
-    ) -> CompanyUnit:
-        edge = crud.get_edge_by_clild_and_weight(self.__db, company_unit_id, 1)
-        update = EdgeUpdate(**company_update.model_dump())
-        crud.update_edge(self.__db, edge, update)
-        return self.get_tree(company_unit_id)
-
     def __build_tree(
         self, company_units: list[CompanyUnit], parent_id: UUID4
     ) -> list[CompanyUnit]:
@@ -85,7 +65,7 @@ class CompanyManager:
         return children
 
     def _get_parent_id(self, node_id: UUID4) -> UUID4 | None:
-        edge = crud.get_edge_by_clild_and_weight(self.__db, node_id, 1)
+        edge = crud.get_edge_by_clild_and_depth(self.__db, node_id, 1)
         return edge.parent_id if edge else None
 
     def _get_height(self, node_id: UUID4) -> int:
@@ -94,4 +74,4 @@ class CompanyManager:
         root_parent_edge = crud.get_edge_by_parent_and_child(
             self.__db, parent_id=self.__root.id, child_id=node_id
         )
-        return root_parent_edge.weight
+        return root_parent_edge.depth if root_parent_edge else -1

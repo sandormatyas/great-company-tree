@@ -3,7 +3,6 @@ name = "yggdrasil"
 version = "0.1.0"
 description = ""
 authors = ["Mátyás Sándor <matyas.sandor@lego.com>"]
-readme = "README.md"
 include = ["src", "scripts"]
 
 [tool.poetry.dependencies]

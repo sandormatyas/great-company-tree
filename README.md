@@ -8,7 +8,7 @@ Root node is fixed
 - [x] REST endpoint fetch nodes
 - [x] REST endpoint move nodes (lateral)
 - [x] REST endpoint move nodes (vertical)
-- [ ] Containerize apps
+- [x] Containerize apps
 - [ ] Document project
 - [ ] GraphQL endpoint
 - [ ] Front-end visualization

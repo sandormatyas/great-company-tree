@@ -1,6 +1,16 @@
-version: '3.8'
-
 services:
+  company-api:
+    build: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/company
+      # "postgresql://postgres:postgres@localhost/company" for local development
+    entrypoint:
+      - ./entrypoint.sh
+
   db:
     image: postgres:latest
     environment:

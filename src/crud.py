@@ -95,7 +95,11 @@ def update_edges(db: Session, edge_update: EdgeUpdate):
 
 def get_all_child_edges(db: Session, parent_id: UUID4):
     """Returns all the edges where the parent id is the given parent"""
-    return db.query(models.Edge).filter(models.Edge.parent_id == parent_id).all()
+    return (
+        db.query(models.Edge)
+        .filter(models.Edge.parent_id == parent_id, models.Edge.depth > 0)
+        .all()
+    )
 
 
 def get_edge_by_clild_and_depth(db: Session, child_id: UUID4, depth: int):

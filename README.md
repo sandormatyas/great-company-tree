@@ -1,6 +1,88 @@
 # Explore company structure - case study
 
-Root node is fixed
+This repository contains a small API developed for a case study, which can be read in [docs/case_study.md](./docs/case_study.md).
+
+## Requirements and assumptions
+
+There are 2 tasks to achieve:
+
+1. Return any subtree
+2. Change the parent of any node in the tree
+
+### Assumptions
+
+- the root node cannot be modified
+
+While changing the parent of any other node is a feature, by definition the root node does not have a parent, therefore it cannot be changed. Moving the root node also breaks the tree into multiple trees, which can only be fixed by additional changes. Finally, it also doesn't make sense for our scenario, where we want to see our company structure; your company cannot be moved elsewhere.
+
+- the tree can be endlessly long both vertically and horizontally
+- nodes can be moved horizontally and vertically
+
+## Data storage and model
+
+### Data storage
+
+Our requirements state that we need to both read and modify our tree efficiently. This is tricky as tree storage patterns are typically good at one or another, but rarely both. After taking a look at the [patterns available](https://www.mongodb.com/docs/manual/applications/data-models-tree-structures/) in a noSQL solution like MongoDB, I decided to go with a traditional relational database.
+
+I chose PostgreSQL due to it's popularity, support and my previous familiarity.
+
+### Data model
+
+I decided to store the data in two tables. One for the node's data and a **closure table** to keep track of all the edges between nodes.
+
+![data model diagram](./docs/data_model.drawio.svg)
+
+The nodes don't contain any data per the requirements, however, I decided to add a `name` colunm to make it easier for me to keep track of them and store them in a **nodes** table.
+
+**Edges** contain the relationships between nodes. Not only the direct parent-child relationships are stored but basically any (vertical) path that's present between two nodes. The `depth` column tracks the "distance" between nodes.
+
+👍 The benefits with this approach is that complete subtrees can be found with a simple query. 
+
+Height does not need to be stored as a separate field, as it can be determined by the `depth` compared to the root node. The task also calls out that 'each node should know the root node', but it's not necessary to store this information with the nodes as this information is available in the **edges** table.
+
+Upon changing the parent of a node, some edges have to be deleted and some new ones have to be added. Luckily these are 1 operation each so it's still pretty fast.
+
+👎 The storage costs are higher than other simpler solutions due to the number of edges being stored for any node. Also, developing around this is quite complex and it's easy to make mistakes that undermine the benefits of this option.
+
+#### Considered: adjacency list
+
+Initally I considered choosing a simple model, where all the data for a given node (which is not much for our scenario) is stored as one row. The relationship between nodes would be stored as a column, where a reference to their direct parent is stored.
+
+👍 The benefits of this is that moving nodes is super simple, as only 1 row has to be updated to point to a new parent. Well, if you decide to store the height with the node it becomes much harder. Given that a node was moved vertically, first the parent reference has to be updated along with the new height (assuming we know the new height at the time of update). After that each child node has to be found and their height has to be adjusted as well.
+
+👎 The drawback of this solution are that mapping all the children nodes and sub-nodes require multiple reads and given our assumption that this tree is infinitely long and branching this becomes a slow operation.
+
+> [!NOTE]
+> In a close to real life schenario, where the tree is much more finite this could be a good option due to its simplicity.
+
+## API design
+
+Because of the nature of data my mind jumped to serving the data up through via a GraphQL interface. Having never implemented it before I began reading up on it to understand if it's a good fit. For the scenario of querying a tree, a company hierarchy it's a good fit, however, because there aren't many fields to filter out and the potentially endless tree being problematic I decided to put it on hold and add it as an [additional goal](#additional-ideas) if I have time.
+
+I decided to add REST endpoints for both fetching a node and all its children and updating a node with a new parent id. I also added an endpoint for fetching the root node, just for ease of use.
+
+The openapi specification of this REST API can be found in [docs/openapi.yml](./docs/openapi.yml). 
+
+> [!IMPORTANT]
+>The speficiation contains the desired state, but not completely accurate at the moment.
+
+For the language and framework I went with Python and FastAPI because of familiarity and ease of use.
+
+I autogenerated a boilerplate project with an [OpenAPI code Generator](https://openapi-generator.tech/), but it was completely overkill for the task, so for the sake of simplicity I set up the structure myself.
+
+## Runtime
+
+As per the requirements the repository contains a `docker-compose.yml` file that pulls and sets up the postgres database and containerizes and runs the API as well.
+
+Run the following to start the containers
+```bash
+docker-compose up
+```
+
+Once the API is running you can start making calls to endpoints
+```bash
+curl http://localhost:8000/health
+```
 
 ## TODO
 
@@ -9,6 +91,14 @@ Root node is fixed
 - [x] REST endpoint move nodes (lateral)
 - [x] REST endpoint move nodes (vertical)
 - [x] Containerize apps
-- [ ] Document project
-- [ ] GraphQL endpoint
+- [x] Document project
+
+### Additional ideas
+
+- [ ] GraphQL endpoint 
+
+The nature of the data lends itself well to querying it through an interface like GraphQL. It would be cool to add a `/graphql` endpoint for fetching the company hierarchy in such a manner. A potential issue is that currently hypothetically it could be an endlessly long tree, which to my knowledge could lead to issues and is not an allowed pattern in graphql (ref: https://github.com/graphql/graphql-spec/issues/91#issuecomment-206743676), due to endless recursivity concerns.
+
 - [ ] Front-end visualization
+
+A small React web-applet would be cool to showcase the hierarchy in a more visual manner.

@@ -20,6 +20,9 @@ class CompanyManager:
 
         return new_node
 
+    def get_node(self, node_id: UUID4) -> models.Node:
+        return crud.get_node(self.__db, node_id)
+
     def add_node(self, company_unit_create: CompanyUnitCreate) -> models.Node:
         new_node = crud.add_node(self.__db, models.Node(name=company_unit_create.name))
 
@@ -38,7 +41,7 @@ class CompanyManager:
         company_unit = self.get_company_unit(node_id)
         edges_from_unit = crud.get_all_child_edges(self.__db, parent_id=node_id)
         children = [self.get_company_unit(edge.child_id) for edge in edges_from_unit]
-        company_unit.children = self.__build_tree(children, node_id)
+        company_unit.children = self._build_tree(children, node_id)
 
         return company_unit
 
@@ -52,15 +55,13 @@ class CompanyManager:
             height=self._get_height(node_id),
         )
 
-    def __build_tree(
+    def _build_tree(
         self, company_units: list[CompanyUnit], parent_id: UUID4
     ) -> list[CompanyUnit]:
         children = []
         for company_unit in company_units:
             if company_unit.parent_id == parent_id:
-                company_unit.children = self.__build_tree(
-                    company_units, company_unit.id
-                )
+                company_unit.children = self._build_tree(company_units, company_unit.id)
                 children.append(company_unit)
         return children
 
